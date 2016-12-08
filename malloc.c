@@ -50,8 +50,8 @@ void *malloc(unsigned int size)
 		}
 
 		// 8 байт заголовок после (p + 12) который имеет фактический адрес и чексумму.
-		*(p + 12) = size;	// Actual size to be returned.
-		*(p + 12 + 4) = 0;	// Checksum.
+		*(p + 12) = size;	// фактический размер.
+		*(p + 12 + 4) = 0;	// чексумма.
 
 		// кусок недоступен.
 		f -> size = 0;
@@ -119,8 +119,8 @@ void *malloc(unsigned int size)
 		// Нет места в буфере.
 		else
 		{
-			// Allocate more memory.
-			// If size is less than 3, 10*size is not enough so allocate 40.
+			// выделение больше памяти.
+			// Если меньше 3, 10*size мало поэтому выделяем 40.
 			if (size > 3)
 			{
 				p = sbrk(10*size);
@@ -135,13 +135,13 @@ void *malloc(unsigned int size)
 				return NULL;
 			}
 
-			// Make sure the last chunk is now pointing to the beginning of the newly allocated memory.
+			//указывает ли блок на начало нового блока.
 			a -> next = (void *) p;
 			a = a -> next;
 
 			a = (void *) p;
 
-			// 12 byte header.
+			// 12 байт заголовок.
 			if (size > 3)
 			{
 				a -> size = 10*size - 12;
@@ -156,15 +156,13 @@ void *malloc(unsigned int size)
 			a -> next = NULL;
 			a -> before = NULL;
 
+			*(p + 12) = size;	// размер.
+			*(p + 12 + 4) = 0;	// чексумма.
 
-			// 8 byte header after (p + 12) which has the actual size to be used and the checksum.
-			*(p + 12) = size;	// Actual size to be returned.
-			*(p + 12 + 4) = 0;	// Checksum.
-
-			// This chunk is not available any more.
+			// блок недоступен.
 			a -> size = 0;
 
-			// Set the next attributes.
+			// остальные атрибуты.
 			a -> next = (void *) p + 20 + size;
 			if (size > 3)
 			{
@@ -177,7 +175,7 @@ void *malloc(unsigned int size)
 			a -> next -> next = NULL;
 			a -> next -> before = (void *) a;
 
-	 		// Return the space requested from user.
+	 		// возврат адреса.
 	 		return p + 20;
 		}
 	}
@@ -190,15 +188,15 @@ void free(void *p)
 	char *a;
 	a = (void *)p;
 
-	// Cannot free a NULL pointer.
+	// нельзя освободить нулевой указатель.
 	if(p == NULL)
 		return;
 
-	// If checksum is indeed 0.
+	// если чексумма 0.
 	if (*(a - 4) == 0 && (a - 8) != NULL && (a - 20) != NULL)
 	{
 		size = *(a - 8);
-		*(a- 20) = size + 8; // Size + 8 byte headers available to use again.
+		*(a- 20) = size + 8; // размер + 8 байт.
 	}
 }
 
@@ -206,13 +204,13 @@ void *calloc(size_t nmemb, size_t size)
 {
 	char *p;
 
-	// If zero return NULL.
+	// нечего выделять.
 	if (nmemb == 0 || size == 0)
 	{
 		return NULL;
 	}
 
-	// Malloc the area and zero it out.
+	// выделяем и зануляем.
 	else
 	{
 		p = malloc(nmemb * size);
@@ -227,26 +225,26 @@ void *realloc(void *ptr, size_t size)
 	char *p;
 	char *a = ptr;
 
-	// Realloc on a NULL pointer same as malloc.
+	// нулевой указатель.
 	if (ptr == NULL)
 	{
 		p = malloc(size);
 		return p;
 	}
 
-	// Realloc to size 0 same as free.
+	// сжать до размера 0.
 	else if (size == 0)
 	{
 		free(ptr);
 		return NULL;
 	}
 
-	// Cannot realloc to size smaller.
+	// нельзя сжать данные.
 	else if(size > *(a - 8)){
 		return NULL;
 	}
 
-	// Malloc and copy to given pointer, then free the temporary portion.
+	// выделение памяти, возврат значения и зануление.
 	else
 	{
 		p = malloc(size);
